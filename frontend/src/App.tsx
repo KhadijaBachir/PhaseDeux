@@ -5,6 +5,7 @@ import RegisterPage from "./pages/RegisterPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from "./pages/Dashboard";
+import List from "./pages/List";
 
 const App: React.FC = () => {
   return (
@@ -28,6 +29,10 @@ const App: React.FC = () => {
 
         {/* Dashboard après connexion */}
         <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Listes des hotels*/}
+        <Route path="/List" element={<List/>} />
+
 
       </Routes>
     </Router>

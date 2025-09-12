@@ -1,8 +1,7 @@
 // src/pages/Dashboard.tsx
 import React, { useEffect, useState } from "react";
-import { FiMail, FiUsers, FiLogOut, FiSearch, FiBell } from "react-icons/fi";
-import { BsBuilding, BsFileText, BsHouseDoor } from "react-icons/bs";
-import { AiOutlineMessage } from "react-icons/ai";
+import { FiLogOut, FiSearch, FiBell } from "react-icons/fi";
+import {  BsHouseDoor } from "react-icons/bs";
 import { MdOutlineHotel } from "react-icons/md";
 import { NavLink } from "react-router-dom";
 import axios from "axios";
@@ -14,7 +13,7 @@ interface User {
   photo: string | null;
 }
 
-const Dashboard: React.FC = () => {
+const List: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
 
   // Obtenir les initiales (au moins la première lettre du prénom)
@@ -80,31 +79,31 @@ const Dashboard: React.FC = () => {
           {/* Menu */}
           <nav className="space-y-4">
             <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
+                to="/dashboard"
+                className={({ isActive }) =>
                 `flex items-center gap-2 px-3 py-2 rounded transition ${
-                  isActive
+                    isActive
                     ? "bg-white text-[#2e3034]" // lien actif : bg blanc, texte + icone #2e3034
                     : "text-white hover:bg-gray-700" // lien inactif
                 }`
-              }
+                }
             >
-              <BsHouseDoor /> Dashboard
+                <BsHouseDoor /> Dashboard
             </NavLink>
 
             <NavLink
-              to="/list"
-              className={({ isActive }) =>
+                to="/list"
+                className={({ isActive }) =>
                 `flex items-center gap-2 px-3 py-2 rounded transition ${
-                  isActive
+                    isActive
                     ? "bg-white text-[#2e3034]"
                     : "text-white hover:bg-gray-700"
                 }`
-              }
+                }
             >
-              <MdOutlineHotel /> Liste des hôtels
+                <MdOutlineHotel /> Liste des hôtels
             </NavLink>
-          </nav>
+            </nav>
 
         </div>
 
@@ -122,7 +121,7 @@ const Dashboard: React.FC = () => {
       <main className="flex-1 bg-gray-100 flex flex-col">
         {/* Top Navbar */}
         <div className="bg-white shadow flex items-center justify-between px-6 py-3">
-          <h1 className="text-lg font-semibold">Dashboard</h1>
+          <h1 className="text-lg font-semibold">Liste des hôtels</h1>
 
           <div className="flex items-center gap-5">
             {/* Recherche */}
@@ -167,39 +166,11 @@ const Dashboard: React.FC = () => {
             Bienvenue sur RED Product <br />
             Votre gestionnaire d'hotelllerie
           </p>
-
-          {/* Cartes */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card count="125" label="Formulaires" icon={<BsFileText size={28} />} color="bg-purple-500" />
-            <Card count="40" label="Messages" icon={<AiOutlineMessage size={28} />} color="bg-teal-500" />
-            <Card count="600" label="Utilisateurs" icon={<FiUsers size={28} />} color="bg-yellow-500" />
-            <Card count="25" label="E-mails" icon={<FiMail size={28} />} color="bg-red-500" />
-            <Card count="40" label="Hôtels" icon={<MdOutlineHotel size={28} />} color="bg-purple-600" />
-            <Card count="02" label="Entités" icon={<BsBuilding size={28} />} color="bg-blue-500" />
-          </div>
         </div>
       </main>
     </div>
   );
 };
 
-// Composant carte réutilisable
-interface CardProps {
-  count: string;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-}
 
-const Card: React.FC<CardProps> = ({ count, label, icon, color }) => (
-  <div className="bg-white shadow rounded p-5 flex items-center gap-4">
-    <div className={`${color} text-white p-3 rounded-full`}>{icon}</div>
-    <div>
-      <h3 className="text-xl font-bold">{count}</h3>
-      <p className="text-gray-500">{label}</p>
-      <small className="text-gray-400">Je ne sais pas quoi mettre</small>
-    </div>
-  </div>
-);
-
-export default Dashboard;
+export default List;

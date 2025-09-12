@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios, { AxiosError } from "axios";
 
+
 // Config Axios globale
 axios.defaults.baseURL = "http://127.0.0.1:8080"; // pas de /api ici pour garder ton code existant
 axios.defaults.withCredentials = true; // pour Sanctum si cookies nécessaires
