@@ -18,6 +18,8 @@ class VerifyCsrfToken extends Middleware
         'api/forgot-password',
         'api/reset-password',
         'sanctum/csrf-cookie',
-        'api/upload-photo'
+        'api/upload-photo',
+        'api/hotels', // ← AJOUTEZ CETTE LIGNE
+        'api/hotels/*' // ← ET CETTE LIGNE POUR TOUTES LES ROUTES HOTELS
     ];
 }

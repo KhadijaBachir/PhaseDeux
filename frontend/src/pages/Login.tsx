@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import axios, { AxiosError } from "axios";
 
@@ -61,13 +62,18 @@ const Login: React.FC = () => {
   const styles: { [key: string]: React.CSSProperties } = {
     pageContainer: {
       minHeight: "100vh",
-      backgroundColor: "#2e3034",
+      backgroundColor: "#2e3034", 
+      backgroundImage: "linear-gradient(#2e3034, #2e3034), url('/befor.svg')",
+      backgroundRepeat: "repeat",
+      backgroundSize: "150px 150px",
+      backgroundBlendMode: "multiply", // ou "overlay", teste les deux
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       fontFamily: "Arial, sans-serif",
     },
+    
     registerCard: {
       backgroundColor: "#ffffff",
       padding: "40px",
