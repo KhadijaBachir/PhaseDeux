@@ -33,15 +33,9 @@ const ForgotPassword: React.FC = () => {
     setLoading(true);
 
     try {
-      // Étape 1: Récupérer le cookie CSRF
       await getCsrfToken();
 
-      // Étape 2: Envoyer la requête de mot de passe oublié
-      const response = await axios.post(
-        "/api/forgot-password",
-        { email }
-      );
-
+      const response = await axios.post("/api/forgot-password", { email });
       console.log("Réponse du serveur:", response.data);
       setSuccess("Un email de réinitialisation a été envoyé !");
     } catch (err: unknown) {
@@ -68,24 +62,32 @@ const ForgotPassword: React.FC = () => {
   const styles: { [key: string]: React.CSSProperties } = {
     pageContainer: {
       minHeight: "100vh",
-      backgroundColor: "#2e3034",
+      backgroundColor: "#1f2022",
+      backgroundImage: "url('/befor.svg')",
+      backgroundRepeat: "repeat",
+      backgroundSize: "cover",
+      backgroundBlendMode: "overlay",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
+      padding: "20px",
       fontFamily: "Arial, sans-serif",
     },
     registerCard: {
       backgroundColor: "#ffffff",
       padding: "40px",
       borderRadius: "6px",
-      width: "400px",
+      width: "100%",
+      maxWidth: "400px",
       boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+      boxSizing: "border-box",
     },
     title: {
       color: "#333333",
       marginBottom: "20px",
       textAlign: "center",
+      fontSize: "20px",
     },
     formGroup: {
       textAlign: "left",
@@ -106,6 +108,7 @@ const ForgotPassword: React.FC = () => {
       fontSize: "14px",
       background: "transparent",
       borderRadius: "4px",
+      boxSizing: "border-box",
     },
     registerButton: {
       width: "100%",
@@ -120,7 +123,7 @@ const ForgotPassword: React.FC = () => {
     },
     linkText: {
       marginTop: "20px",
-      color: "#666666",
+      color: "#ffffff",
       textAlign: "center",
     },
     link: {
@@ -143,13 +146,13 @@ const ForgotPassword: React.FC = () => {
   return (
     <div style={styles.pageContainer}>
       {/* Logo + Titre */}
-      <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "16px", flexWrap: "wrap", justifyContent: "center" }}>
         <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
           <path d="M2.66602 2.66624H29.3286V29.3288L2.66602 2.66624Z" fill="white" />
           <path d="M2.66602 2.66624H22.663L15.9973 15.9975L2.66602 2.66624Z" fill="black" fillOpacity="0.15" />
           <path d="M2.66602 2.66624H15.9973L2.66602 29.3288V2.66624Z" fill="white" />
         </svg>
-        <h2 style={{ color: "white", fontSize: "22px", fontWeight: 600 }}>RED PRODUCT</h2>
+        <h2 style={{ color: "white", fontSize: "22px", fontWeight: 600, textAlign: "center" }}>RED PRODUCT</h2>
       </div>
 
       {/* Formulaire */}
@@ -182,7 +185,7 @@ const ForgotPassword: React.FC = () => {
         </form>
       </div>
 
-      <p style={{ ...styles.linkText, color: "white" }}>
+      <p style={styles.linkText}>
         Revenir à la <a href="/login" style={styles.link}>Connexion</a>
       </p>
     </div>

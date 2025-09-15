@@ -9,14 +9,17 @@ use Illuminate\Validation\Rule;
 
 class HotelController extends Controller
 {
-    // Liste tous les hôtels
-    public function index()
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
     {
-        // Le modèle Hotel va automatiquement transformer le chemin de la photo en une URL complète
-        return response()->json(Hotel::all(), 200);
+        return response()->json($request->user()->hotels, 200);
     }
 
-    // Crée un nouvel hôtel
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -29,33 +32,37 @@ class HotelController extends Controller
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        // Gère l'upload de la photo si un fichier est présent
         if ($request->hasFile('photo')) {
-            // Store le fichier dans le dossier 'hotels' du disque 'public'
             $path = $request->file('photo')->store('hotels', 'public');
-            // On stocke UNIQUEMENT le chemin relatif dans la base de données
             $validated['photo'] = $path;
         } else {
             $validated['photo'] = null;
         }
 
-        $hotel = Hotel::create($validated);
+        $hotel = $request->user()->hotels()->create($validated);
 
-        // La réponse JSON inclura l'URL complète grâce à l'accessor dans le modèle
         return response()->json($hotel, 201);
     }
 
-    // Affiche un hôtel précis
+    /**
+     * Display the specified resource.
+     */
     public function show($id)
     {
         $hotel = Hotel::findOrFail($id);
         return response()->json($hotel, 200);
     }
 
-    // Met à jour un hôtel
+    /**
+     * Update the specified resource in storage.
+     */
     public function update(Request $request, $id)
     {
         $hotel = Hotel::findOrFail($id);
+
+        if ($request->user()->id !== $hotel->user_id) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'sometimes|string',
@@ -64,17 +71,13 @@ class HotelController extends Controller
             'phone' => 'nullable|string',
             'price' => 'sometimes|numeric',
             'currency' => 'sometimes|string',
-            // Le "sometimes" assure que le champ est validé seulement s'il est présent dans la requête
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        // Gère l'upload d'une nouvelle photo
         if ($request->hasFile('photo')) {
-            // Supprime l'ancienne photo si elle existe avant d'en enregistrer une nouvelle
             if ($hotel->photo) {
-                Storage::disk('public')->delete($hotel->photo);
+                Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
             }
-            
             $path = $request->file('photo')->store('hotels', 'public');
             $validated['photo'] = $path;
         }
@@ -83,14 +86,19 @@ class HotelController extends Controller
         return response()->json($hotel, 200);
     }
 
-    // Supprime un hôtel
-    public function destroy($id)
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Request $request, $id)
     {
         $hotel = Hotel::findOrFail($id);
         
-        // Supprime la photo associée avant de supprimer l'hôtel
+        if ($request->user()->id !== $hotel->user_id) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+        
         if ($hotel->photo) {
-            Storage::disk('public')->delete($hotel->photo);
+            Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
         }
         
         $hotel->delete();

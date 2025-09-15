@@ -42,11 +42,16 @@ class AuthController extends Controller
 
         $user = User::where('email', $fields['email'])->first();
 
+        // Vérifiez si l'utilisateur existe et si le mot de passe est correct.
         if (!$user || !Hash::check($fields['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Les informations sont incorrectes.'],
-            ]);
+            // Renvoyez un statut 401 Unauthorized avec un message spécifique.
+            return response()->json([
+                'message' => 'Email ou mot de passe incorrect.'
+            ], 401);
         }
+
+        // Révoquez tous les tokens existants de l'utilisateur pour des raisons de sécurité.
+        $user->tokens()->delete();
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -111,7 +116,7 @@ class AuthController extends Controller
 
         // Supprime l'ancienne photo si elle existe
         if ($user->photo) {
-            Storage::disk('public')->delete($user->photo);
+            Storage::disk('public')->delete($user->getRawOriginal('photo'));
         }
 
         // Stocke la nouvelle photo

@@ -1,11 +1,9 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios, { AxiosError } from "axios";
 
-
 // Config Axios globale
-axios.defaults.baseURL = "http://127.0.0.1:8080"; // pas de /api ici pour garder ton code existant
-axios.defaults.withCredentials = true; // pour Sanctum si cookies nécessaires
+axios.defaults.baseURL = "http://127.0.0.1:8080";
+axios.defaults.withCredentials = true;
 
 interface ApiErrorResponse {
   message?: string;
@@ -17,6 +15,14 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Détecter redimensionnement
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,21 +30,14 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      // Récupérer le cookie CSRF (Laravel Sanctum)
       await axios.get("/sanctum/csrf-cookie");
-
-      // POST vers /api/login
       const response = await axios.post("/api/login", { email, password });
-
-      console.log("Login réussi :", response.data);
 
       if (response.data.token) {
         localStorage.setItem("auth_token", response.data.token);
         window.location.href = "/dashboard";
       }
     } catch (err) {
-      console.error("Erreur détaillée:", err);
-
       if (axios.isAxiosError(err)) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
         if (axiosError.response?.status === 422) {
@@ -62,65 +61,58 @@ const Login: React.FC = () => {
   const styles: { [key: string]: React.CSSProperties } = {
     pageContainer: {
       minHeight: "100vh",
-      backgroundColor: "#2e3034", 
-      backgroundImage: "linear-gradient(#2e3034, #2e3034), url('/befor.svg')",
+      backgroundColor: "#1f2022",
+      backgroundImage: "url('/befor.svg')",
       backgroundRepeat: "repeat",
-      backgroundSize: "150px 150px",
-      backgroundBlendMode: "multiply", // ou "overlay", teste les deux
+      backgroundSize: "cover",
+      backgroundBlendMode: "overlay",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
+      padding: "20px",
       fontFamily: "Arial, sans-serif",
     },
-    
     registerCard: {
       backgroundColor: "#ffffff",
-      padding: "40px",
-      borderRadius: "6px",
-      width: "400px",
-      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+      padding: isMobile ? "20px" : "40px",
+      borderRadius: "8px",
+      width: isMobile ? "100%" : "400px",
+      maxWidth: "100%",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
     },
     title: {
       color: "#333333",
       marginBottom: "20px",
       textAlign: "center",
-    },
-    formGroup: {
-      textAlign: "left",
-      marginBottom: "20px",
-    },
-    label: {
-      display: "block",
-      marginBottom: "5px",
-      color: "#666666",
-      fontSize: "14px",
+      fontSize: isMobile ? "18px" : "22px",
     },
     input: {
       width: "100%",
-      padding: "10px",
+      padding: isMobile ? "8px" : "10px",
       border: "none",
       borderBottom: "2px solid #cccccc",
       outline: "none",
-      fontSize: "14px",
+      fontSize: isMobile ? "13px" : "14px",
       background: "transparent",
       borderRadius: "4px",
     },
     registerButton: {
       width: "100%",
-      padding: "12px",
-      backgroundColor: "#333333",
+      padding: isMobile ? "10px" : "12px",
+      backgroundColor: "#2e3034",
       color: "#ffffff",
       border: "none",
       borderRadius: "4px",
-      fontSize: "16px",
+      fontSize: isMobile ? "14px" : "16px",
       cursor: "pointer",
       transition: "background-color 0.3s ease",
     },
     linkText: {
       marginTop: "20px",
-      color: "#666666",
+      color: "#ffffff",
       textAlign: "center",
+      fontSize: isMobile ? "13px" : "14px",
     },
     link: {
       color: "#ffa500",
@@ -131,19 +123,20 @@ const Login: React.FC = () => {
       color: "red",
       marginBottom: "10px",
       textAlign: "center",
+      fontSize: isMobile ? "13px" : "14px",
     },
   };
 
   return (
     <div style={styles.pageContainer}>
       {/* Logo + Titre */}
-      <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "16px" }}>
-        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap", justifyContent: "center" }}>
+        <svg width={isMobile ? "24" : "32"} height={isMobile ? "24" : "32"} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
           <path d="M2.66602 2.66624H29.3286V29.3288L2.66602 2.66624Z" fill="white" />
           <path d="M2.66602 2.66624H22.663L15.9973 15.9975L2.66602 2.66624Z" fill="black" fillOpacity="0.15" />
           <path d="M2.66602 2.66624H15.9973L2.66602 29.3288V2.66624Z" fill="white" />
         </svg>
-        <h2 style={{ color: "white", fontSize: "22px", fontWeight: 600 }}>RED PRODUCT</h2>
+        <h2 style={{ color: "white", fontSize: isMobile ? "18px" : "22px", fontWeight: 600 }}>RED PRODUCT</h2>
       </div>
 
       {/* Formulaire */}
@@ -152,8 +145,10 @@ const Login: React.FC = () => {
         {error && <div style={styles.errorText}>{error}</div>}
 
         <form onSubmit={handleLogin}>
-          <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="email">Email</label>
+          <div style={{ marginBottom: "15px" }}>
+            <label style={{ display: "block", marginBottom: "5px", color: "#666666", fontSize: isMobile ? "12px" : "14px" }} htmlFor="email">
+              Email
+            </label>
             <input
               style={styles.input}
               type="email"
@@ -165,8 +160,10 @@ const Login: React.FC = () => {
             />
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="password">Mot de passe</label>
+          <div style={{ marginBottom: "15px" }}>
+            <label style={{ display: "block", marginBottom: "5px", color: "#666666", fontSize: isMobile ? "12px" : "14px" }} htmlFor="password">
+              Mot de passe
+            </label>
             <input
               style={styles.input}
               type="password"
@@ -178,8 +175,8 @@ const Login: React.FC = () => {
             />
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: "#666" }}>
+          <div style={{ marginBottom: "15px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: isMobile ? "12px" : "14px", color: "#666" }}>
               <input type="checkbox" style={{ width: "16px", height: "16px" }} disabled={loading} />
               Gardez-moi connecté
             </label>
@@ -195,10 +192,10 @@ const Login: React.FC = () => {
         </form>
       </div>
 
-      <p style={{ ...styles.linkText, color: "white" }}>
+      <p style={styles.linkText}>
         <a href="/forgot-password" style={styles.link}>Mot de passe oublié ?</a>
       </p>
-      <p style={{ ...styles.linkText, color: "white" }}>
+      <p style={styles.linkText}>
         Vous n'avez pas de compte ? <a href="/register" style={styles.link}>S'inscrire</a>
       </p>
     </div>

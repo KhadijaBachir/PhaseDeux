@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage; // Ajoutez cette ligne pour utiliser la façade Storage
+use Illuminate\Support\Facades\Storage;
 
 class Hotel extends Model
 {
@@ -12,21 +12,46 @@ class Hotel extends Model
 
     protected $fillable = [
         'name',
-        'address',
+        'address', 
         'email',
         'phone',
         'price',
         'currency',
-        'photo', // Ce champ contiendra maintenant le chemin relatif
+        'photo',
+        'user_id' // Bien présent !
     ];
 
+    // Relation avec l'utilisateur - CORRECTION IMPORTANTE
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id'); // Ajouter le nom de la clé étrangère
+    }
+
     /**
-     * Crée l'URL complète de la photo lorsque vous y accédez.
-     *
-     * @return string|null
+     * Accessor pour la photo - AMÉLIORATION
+     * Retourne l'URL complète ou null si pas de photo
      */
     public function getPhotoAttribute($value)
     {
-        return $value ? Storage::disk('public')->url($value) : null;
+        if (!$value) {
+            return null;
+        }
+        
+        // Si c'est déjà une URL complète (http://...), la retourner telle quelle
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+        
+        // Sinon, construire l'URL à partir du chemin de stockage
+        return Storage::disk('public')->url($value);
+    }
+
+    /**
+     * Accessor pour obtenir le chemin brut de la photo (sans URL)
+     * Utile pour la suppression des fichiers
+     */
+    public function getRawPhotoPath()
+    {
+        return $this->getRawOriginal('photo');
     }
 }

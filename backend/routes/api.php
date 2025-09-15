@@ -22,7 +22,7 @@ Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Routes publiques hôtels (GET pour récupérer la liste)
-Route::get('/hotels', [HotelController::class, 'index']);
+Route::get('/hotels', [HotelController::class, 'index']); // CHANGER: Cette route doit être protégée
 Route::get('/hotels/{id}', [HotelController::class, 'show']);
 
 // Routes protégées (nécessitent le token Sanctum)
@@ -32,8 +32,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']); // Récupérer l'utilisateur connecté
     Route::post('/upload-photo', [AuthController::class, 'uploadPhoto']); // Upload photo
 
-    // Hotels (création, update, suppression)
+    // Hotels (création, update, suppression) - TOUTES PROTÉGÉES
+    Route::get('/hotels', [HotelController::class, 'index']); // DÉPLACÉ: Maintenant protégée
     Route::post('/hotels', [HotelController::class, 'store']);
     Route::put('/hotels/{id}', [HotelController::class, 'update']);
     Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
+    
+    // NOUVELLE ROUTE: Hôtels de l'utilisateur connecté (optionnel)
+    Route::get('/user/hotels', [HotelController::class, 'index']);
 });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios, { AxiosError } from "axios";
 
 // Configuration Axios globale
@@ -24,7 +24,6 @@ const RegisterPage: React.FC = () => {
     setError("");
     setLoading(true);
 
-    // Validation simple
     if (password !== password_confirmation) {
       setError("Les mots de passe ne correspondent pas");
       setLoading(false);
@@ -32,39 +31,32 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      // Récupérer le cookie CSRF de Sanctum
       await axios.get("/sanctum/csrf-cookie");
 
-      // Envoyer la requête d'inscription
-      const response = await axios.post(
-        "/api/register",
-        { name, email, password, password_confirmation }
-      );
-      
+      const response = await axios.post("/api/register", {
+        name,
+        email,
+        password,
+        password_confirmation,
+      });
+
       console.log("Inscription réussie :", response.data);
-      
-      // Redirection après inscription réussie
+
       if (response.data.message || response.data.user) {
-        // Rediriger vers la page de connexion avec un paramètre de succès
         window.location.href = "/login?registered=true";
       }
-      
     } catch (err) {
       console.error("Erreur d'inscription:", err);
-      
-      // Gestion d'erreur typée correctement
+
       if (axios.isAxiosError(err)) {
         const axiosError = err as AxiosError<ApiErrorResponse>;
-        
         if (axiosError.code === "ERR_NETWORK") {
           setError("Impossible de se connecter au serveur. Vérifiez qu'il est démarré.");
         } else if (axiosError.response?.status === 419) {
           setError("Erreur de jeton CSRF. Veuillez rafraîchir la page.");
         } else if (axiosError.response?.status === 422) {
-          // Erreur de validation Laravel
           const errorData = axiosError.response.data;
           if (errorData?.errors) {
-            // Afficher la première erreur de validation
             const firstErrorKey = Object.keys(errorData.errors)[0];
             setError(errorData.errors[firstErrorKey][0]);
           } else if (errorData?.message) {
@@ -87,14 +79,20 @@ const RegisterPage: React.FC = () => {
     }
   };
 
+  // Styles principaux
   const styles: { [key: string]: React.CSSProperties } = {
     pageContainer: {
       minHeight: "100vh",
-      backgroundColor: "#2e3034",
+      backgroundColor: "#1f2022",
+      backgroundImage: "url('/befor.svg')",
+      backgroundRepeat: "repeat",
+      backgroundSize: "cover",
+      backgroundBlendMode: "overlay",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
+      padding: "20px",
       fontFamily: "Arial, sans-serif",
     },
     registerCard: {
@@ -103,11 +101,13 @@ const RegisterPage: React.FC = () => {
       borderRadius: "5px",
       boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
       width: "400px",
+      maxWidth: "100%", // 👉 ne dépasse jamais l’écran
     },
     title: {
       color: "#333333",
       marginBottom: "20px",
       textAlign: "center",
+      fontSize: "20px",
     },
     formGroup: {
       textAlign: "left",
@@ -131,7 +131,7 @@ const RegisterPage: React.FC = () => {
     registerButton: {
       width: "100%",
       padding: "12px",
-      backgroundColor: "#333333",
+      backgroundColor: "#2e3034",
       color: "#ffffff",
       border: "none",
       borderRadius: "4px",
@@ -141,8 +141,9 @@ const RegisterPage: React.FC = () => {
     },
     linkText: {
       marginTop: "20px",
-      color: "#666666",
+      color: "#ffffff",
       textAlign: "center",
+      fontSize: "14px",
     },
     link: {
       color: "#ffa500",
@@ -157,6 +158,32 @@ const RegisterPage: React.FC = () => {
     },
   };
 
+  // Injection des media queries pour la responsivité
+  useEffect(() => {
+    const styleSheet = document.createElement("style");
+    styleSheet.innerHTML = `
+      @media (max-width: 480px) {
+        .register-card {
+          width: 90% !important;
+          padding: 15px !important;
+        }
+        .register-title {
+          font-size: 18px !important;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .register-card {
+          width: 80% !important;
+        }
+      }
+    `;
+    document.head.appendChild(styleSheet);
+    return () => {
+      document.head.removeChild(styleSheet);
+    };
+  }, []);
+
   return (
     <div style={styles.pageContainer}>
       {/* Logo + Titre */}
@@ -168,9 +195,9 @@ const RegisterPage: React.FC = () => {
         </svg>
         <h2 style={{ color: "white", fontSize: "22px", fontWeight: 600 }}>RED PRODUCT</h2>
       </div>
-      
-      <div style={styles.registerCard}>
-        <h2 style={styles.title}>Inscrivez-vous en tant que admin</h2>
+
+      <div style={{ ...styles.registerCard }} className="register-card">
+        <h2 style={{ ...styles.title }} className="register-title">Inscrivez-vous en tant que admin</h2>
 
         {error && <div style={styles.errorText}>{error}</div>}
 
@@ -229,23 +256,18 @@ const RegisterPage: React.FC = () => {
 
           <div style={styles.formGroup}>
             <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: "#666" }}>
-              <input 
-                type="checkbox" 
-                required 
-                style={{ width: "16px", height: "16px" }} 
-                disabled={loading}
-              />
+              <input type="checkbox" required style={{ width: "16px", height: "16px" }} disabled={loading} />
               Accepter les termes et la politique
             </label>
           </div>
 
-          <button 
-            type="submit" 
-            style={{ 
-              ...styles.registerButton, 
+          <button
+            type="submit"
+            style={{
+              ...styles.registerButton,
               opacity: loading ? 0.7 : 1,
-              cursor: loading ? "not-allowed" : "pointer"
-            }} 
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
             disabled={loading}
           >
             {loading ? "Inscription..." : "S'inscrire"}
@@ -253,7 +275,7 @@ const RegisterPage: React.FC = () => {
         </form>
       </div>
 
-      <p style={{ ...styles.linkText, color: "white" }}>
+      <p style={styles.linkText}>
         Vous avez déjà un compte ? <a href="/" style={styles.link}>Se connecter</a>
       </p>
     </div>

@@ -212,13 +212,17 @@ const ResetPassword: React.FC = () => {
 const styles: { [key: string]: React.CSSProperties } = {
   pageContainer: {
     minHeight: "100vh",
-    backgroundColor: "#2e3034",
+    backgroundColor: "#1f2022",
+    backgroundImage: "url('/befor.svg')",
+    backgroundRepeat: "repeat",
+    backgroundSize: "cover",
+    backgroundBlendMode: "overlay",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "Arial, sans-serif",
     padding: "20px",
+    fontFamily: "Arial, sans-serif",
   },
   registerCard: {
     backgroundColor: "#ffffff",
