@@ -5,103 +5,160 @@ namespace App\Http\Controllers;
 use App\Models\Hotel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class HotelController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Afficher la liste des hôtels de l'utilisateur connecté.
      */
     public function index(Request $request)
     {
-        return response()->json($request->user()->hotels, 200);
+        try {
+            $hotels = $request->user()->hotels;
+
+            // Correction : On ajoute l'URL de la photo à chaque objet
+            $hotels->map(function ($hotel) {
+                // S'il y a une photo, génère l'URL publique. Sinon, reste null.
+                $hotel->photo = $hotel->photo ? asset('storage/' . $hotel->photo) : null;
+                return $hotel;
+            });
+
+            return response()->json($hotels, 200);
+        } catch (\Exception $e) {
+            \Log::error('Erreur récupération hôtels: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Enregistrer un nouvel hôtel.
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string',
-            'address' => 'required|string',
-            'email' => 'nullable|email',
-            'phone' => 'nullable|string',
-            'price' => 'required|numeric',
-            'currency' => 'required|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string',
+                'address' => 'required|string',
+                'email' => 'nullable|email',
+                'phone' => 'nullable|string',
+                'price_per_night' => 'required|numeric',
+                'currency' => 'required|string',
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
 
-        if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('hotels', 'public');
-            $validated['photo'] = $path;
-        } else {
-            $validated['photo'] = null;
+            // Correction : Gère le stockage de la photo
+            if ($request->hasFile('photo')) {
+                // Stocke le fichier et met à jour le chemin dans le tableau validé
+                $validated['photo'] = $request->file('photo')->store('hotels', 'public');
+            }
+
+            // Crée l'hôtel en l'associant à l'utilisateur authentifié
+            $hotel = $request->user()->hotels()->create($validated);
+
+            // Ajoute l'URL de la photo à la réponse JSON pour l'affichage immédiat sur le frontend
+            $hotel->photo = $hotel->photo ? asset('storage/' . $hotel->photo) : null;
+
+            return response()->json($hotel, 201);
+        } catch (ValidationException $ve) {
+            return response()->json(['errors' => $ve->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erreur création hôtel: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur serveur'], 500);
         }
-
-        $hotel = $request->user()->hotels()->create($validated);
-
-        return response()->json($hotel, 201);
     }
 
     /**
-     * Display the specified resource.
+     * Afficher un hôtel spécifique.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $hotel = Hotel::findOrFail($id);
-        return response()->json($hotel, 200);
+        try {
+            $hotel = Hotel::findOrFail($id);
+
+            if ($hotel->user_id !== $request->user()->id) {
+                return response()->json(['message' => 'Non autorisé'], 403);
+            }
+
+            // Correction : Génère l'URL pour la réponse
+            $hotel->photo = $hotel->photo ? asset('storage/' . $hotel->photo) : null;
+
+            return response()->json($hotel, 200);
+        } catch (\Exception $e) {
+            \Log::error('Erreur affichage hôtel: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     /**
-     * Update the specified resource in storage.
+     * Mettre à jour un hôtel.
      */
     public function update(Request $request, $id)
     {
-        $hotel = Hotel::findOrFail($id);
+        try {
+            $hotel = Hotel::findOrFail($id);
 
-        if ($request->user()->id !== $hotel->user_id) {
-            return response()->json(['message' => 'Non autorisé'], 403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'sometimes|string',
-            'address' => 'sometimes|string',
-            'email' => 'nullable|email',
-            'phone' => 'nullable|string',
-            'price' => 'sometimes|numeric',
-            'currency' => 'sometimes|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-
-        if ($request->hasFile('photo')) {
-            if ($hotel->photo) {
-                Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
+            if ($hotel->user_id !== $request->user()->id) {
+                return response()->json(['message' => 'Non autorisé'], 403);
             }
-            $path = $request->file('photo')->store('hotels', 'public');
-            $validated['photo'] = $path;
-        }
 
-        $hotel->update($validated);
-        return response()->json($hotel, 200);
+            // Le "sometimes" assure que le champ n'est validé que s'il est présent
+            $validated = $request->validate([
+                'name' => 'sometimes|string',
+                'address' => 'sometimes|string',
+                'email' => 'nullable|email',
+                'phone' => 'nullable|string',
+                'price_per_night' => 'sometimes|numeric',
+                'currency' => 'sometimes|string',
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
+
+            // Gère la mise à jour de la photo
+            if ($request->hasFile('photo')) {
+                // Supprime l'ancienne photo si elle existe
+                if ($hotel->photo) {
+                    Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
+                }
+                $validated['photo'] = $request->file('photo')->store('hotels', 'public');
+            }
+
+            $hotel->update($validated);
+
+            // Ajoute l'URL de la photo à la réponse
+            $hotel->photo = $hotel->photo ? asset('storage/' . $hotel->photo) : null;
+
+            return response()->json($hotel, 200);
+        } catch (ValidationException $ve) {
+            return response()->json(['errors' => $ve->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erreur mise à jour hôtel: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Supprimer un hôtel.
      */
     public function destroy(Request $request, $id)
     {
-        $hotel = Hotel::findOrFail($id);
-        
-        if ($request->user()->id !== $hotel->user_id) {
-            return response()->json(['message' => 'Non autorisé'], 403);
+        try {
+            $hotel = Hotel::findOrFail($id);
+
+            if ($hotel->user_id !== $request->user()->id) {
+                return response()->json(['message' => 'Non autorisé'], 403);
+            }
+
+            // Supprime la photo avant de supprimer l'hôtel
+            if ($hotel->photo) {
+                Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
+            }
+
+            $hotel->delete();
+
+            return response()->json(['message' => 'Hôtel supprimé'], 200);
+        } catch (\Exception $e) {
+            \Log::error('Erreur suppression hôtel: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur serveur'], 500);
         }
-        
-        if ($hotel->photo) {
-            Storage::disk('public')->delete($hotel->getRawOriginal('photo'));
-        }
-        
-        $hotel->delete();
-        return response()->json(['message' => 'Hôtel supprimé'], 200);
     }
 }

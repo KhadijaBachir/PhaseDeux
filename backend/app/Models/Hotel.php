@@ -12,43 +12,34 @@ class Hotel extends Model
 
     protected $fillable = [
         'name',
-        'address', 
+        'address',
         'email',
         'phone',
-        'price',
+        'price_per_night',
         'currency',
         'photo',
-        'user_id' // Bien présent !
+        'user_id' // clé étrangère pour l'utilisateur
     ];
 
-    // Relation avec l'utilisateur - CORRECTION IMPORTANTE
+    /**
+     * Relation avec l'utilisateur
+     */
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id'); // Ajouter le nom de la clé étrangère
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * Accessor pour la photo - AMÉLIORATION
-     * Retourne l'URL complète ou null si pas de photo
+     * Accessor pour la photo
      */
     public function getPhotoAttribute($value)
     {
-        if (!$value) {
-            return null;
-        }
-        
-        // Si c'est déjà une URL complète (http://...), la retourner telle quelle
-        if (filter_var($value, FILTER_VALIDATE_URL)) {
-            return $value;
-        }
-        
-        // Sinon, construire l'URL à partir du chemin de stockage
-        return Storage::disk('public')->url($value);
+        if (!$value) return null;
+        return filter_var($value, FILTER_VALIDATE_URL) ? $value : Storage::disk('public')->url($value);
     }
 
     /**
-     * Accessor pour obtenir le chemin brut de la photo (sans URL)
-     * Utile pour la suppression des fichiers
+     * Chemin brut de la photo (pour suppression)
      */
     public function getRawPhotoPath()
     {

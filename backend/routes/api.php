@@ -15,29 +15,31 @@ Route::get('/sanctum/csrf-cookie', function() {
     return response()->json(['message' => 'CSRF cookie set']);
 });
 
-// Auth API publique
+// Routes publiques
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-// Routes publiques hôtels (GET pour récupérer la liste)
-Route::get('/hotels', [HotelController::class, 'index']); // CHANGER: Cette route doit être protégée
+// Routes publiques pour les hôtels (pour la consultation)
+Route::get('/hotels', [HotelController::class, 'index']);
 Route::get('/hotels/{id}', [HotelController::class, 'show']);
 
 // Routes protégées (nécessitent le token Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
-    // Auth
+    // Routes d'authentification protégées
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/user', [AuthController::class, 'me']); // Récupérer l'utilisateur connecté
-    Route::post('/upload-photo', [AuthController::class, 'uploadPhoto']); // Upload photo
-
-    // Hotels (création, update, suppression) - TOUTES PROTÉGÉES
-    Route::get('/hotels', [HotelController::class, 'index']); // DÉPLACÉ: Maintenant protégée
+    Route::get('/user', [AuthController::class, 'me']);
+    
+    // Correction : L'upload de photo de profil se fait via une route dédiée
+    Route::post('/user/upload-photo', [AuthController::class, 'uploadPhoto']); 
+    
+    // Routes des hôtels (création, mise à jour, suppression)
+    // C'est ici que tu dois gérer l'upload des photos pour les hôtels
     Route::post('/hotels', [HotelController::class, 'store']);
-    Route::put('/hotels/{id}', [HotelController::class, 'update']);
+    Route::post('/hotels/{id}', [HotelController::class, 'update']); // Utilisation de POST pour le PUT (nécessaire pour le formulaire multipart)
     Route::delete('/hotels/{id}', [HotelController::class, 'destroy']);
     
-    // NOUVELLE ROUTE: Hôtels de l'utilisateur connecté (optionnel)
+    // Route pour récupérer les hôtels de l'utilisateur connecté
     Route::get('/user/hotels', [HotelController::class, 'index']);
 });
