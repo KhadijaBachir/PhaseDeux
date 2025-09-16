@@ -57,15 +57,6 @@ return [
             'transport' => 'postmark',
         ],
 
-        'brevo' => [
-            'transport' => 'smtp',
-            'host' => env('BREVO_HOST', 'smtp-relay.brevo.com'),
-            'port' => env('BREVO_PORT', 587),
-            'encryption' => env('BREVO_ENCRYPTION', 'tls'),
-            'username' => env('BREVO_USERNAME'),
-            'password' => env('BREVO_KEY'),
-        ],
-
         'sendmail' => [
             'transport' => 'sendmail',
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
