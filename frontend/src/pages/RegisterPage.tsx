@@ -11,7 +11,12 @@ interface ApiErrorResponse {
   errors?: Record<string, string[]>;
 }
 
-const RegisterPage: React.FC = () => {
+// Interface pour les props du composant
+interface RegisterPageProps {
+  onSwitchToLogin?: () => void;
+}
+
+const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -101,7 +106,7 @@ const RegisterPage: React.FC = () => {
       borderRadius: "5px",
       boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
       width: "400px",
-      maxWidth: "100%", // 👉 ne dépasse jamais l’écran
+      maxWidth: "100%",
     },
     title: {
       color: "#333333",
@@ -149,6 +154,7 @@ const RegisterPage: React.FC = () => {
       color: "#ffa500",
       textDecoration: "none",
       fontWeight: "bold",
+      cursor: "pointer",
     },
     errorText: {
       color: "red",
@@ -276,7 +282,13 @@ const RegisterPage: React.FC = () => {
       </div>
 
       <p style={styles.linkText}>
-        Vous avez déjà un compte ? <a href="/" style={styles.link}>Se connecter</a>
+        Vous avez déjà un compte ?{" "}
+        <span 
+          style={styles.link} 
+          onClick={onSwitchToLogin}
+        >
+          Se connecter
+        </span>
       </p>
     </div>
   );

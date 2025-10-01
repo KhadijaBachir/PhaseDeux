@@ -18,22 +18,20 @@ const App: React.FC = () => {
         {/* Page d'inscription */}
         <Route
           path="/register"
-          element={<RegisterPage onSwitchToLogin={() => {}} />}
+          element={<RegisterPage onSwitchToLogin={() => window.location.href = "/login"} />}
         />
 
         {/* Mot de passe oublié */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* La réinitialisation du mot de passe */}
+        {/* Réinitialisation du mot de passe */}
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Dashboard après connexion */}
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* Listes des hotels*/}
-        <Route path="/List" element={<List/>} />
-
-
+        {/* Liste des hotels */}
+        <Route path="/list" element={<List />} />
       </Routes>
     </Router>
   );
