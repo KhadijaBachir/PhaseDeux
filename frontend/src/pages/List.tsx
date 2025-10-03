@@ -37,40 +37,39 @@ interface Hotel {
 }
 
 // -----------------------------------------------------------
-// ✅ CORRECTION MAJEURE ICI : Composant pour l'affichage sécurisé des images
+// ✅ CORRECTION ICI : Composant pour l'affichage sécurisé des images
 // -----------------------------------------------------------
 const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
-  // Changement : On initialise imageError à true pour masquer le temps du chargement
-  const [imageError, setImageError] = useState(true); 
+  const [imageError, setImageError] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const buildImageUrl = (photoPath: string | null): string | null => {
       if (!photoPath) return null;
 
-      // 1. Vérification si l'API renvoie déjà une URL absolue (votre cas actuel)
+      // 1. Vérifier si l'API renvoie déjà une URL complète
       if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
         return photoPath;
       }
 
-      // 2. Construction si c'est un chemin relatif
+      // 2. Si c'est un chemin relatif, le construire avec la base de stockage VITE
       const baseUrl = import.meta.env.VITE_STORAGE_BASE_URL as string | undefined;
 
       if (baseUrl) {
+        // Supprimer le slash final si la base URL en a un pour éviter le double slash
         const cleanedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         return `${cleanedBaseUrl}/${photoPath}`;
       }
 
+      // 3. Fallback si VITE_STORAGE_BASE_URL n'est pas défini et que ce n'est pas une URL complète
       return photoPath; 
     };
 
     const url = buildImageUrl(hotel.photo);
     setImageUrl(url);
-    // On réinitialise l'erreur à chaque changement d'URL
-    setImageError(false); 
+    setImageError(false);
   }, [hotel.photo]);
 
-  // Si l'URL n'est pas encore prête OU que l'événement onError s'est déclenché
   if (!imageUrl || imageError) {
     return (
       <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex flex-col items-center justify-center">
@@ -80,20 +79,14 @@ const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
     );
   }
 
-  // Si l'URL est prête ET qu'il n'y a pas d'erreur, on tente d'afficher l'image
   return (
     <img
       src={imageUrl}
       alt={`Photo de ${hotel.name}`}
-      // S'assurer qu'il y a une hauteur et que l'objet est visible
-      className="w-full h-48 object-cover" 
-      onLoad={() => {
-         // Optionnel : s'assurer que l'état d'erreur est bien désactivé si l'image est chargée
-         setImageError(false);
-      }}
+      className="w-full h-48 object-cover"
       onError={() => {
-        // Cette fonction sera appelée si l'URL est brisée ou inaccessible.
-        setImageError(true); 
+        // Cette fonction sera appelée si l'URL est brisée ou inaccessible
+        setImageError(true);
       }}
     />
   );
