@@ -1,19 +1,15 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { FiLogOut, FiSearch, FiBell, FiMenu, FiX } from "react-icons/fi";
 import { BsHouseDoor } from "react-icons/bs";
 import { MdOutlineHotel } from "react-icons/md";
 import { AiOutlinePlus } from "react-icons/ai";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 // Configuration Axios globale
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
+axios.defaults.baseURL = "http://127.0.0.1:8080";
 axios.defaults.withCredentials = true;
-
-// -----------------------------------------------------------
-// ✅ INTERFACES
-// -----------------------------------------------------------
 
 interface ApiErrorResponse {
   message?: string;
@@ -40,56 +36,27 @@ interface Hotel {
   user_id: number;
 }
 
-// -----------------------------------------------------------
-// ✅ FONCTION UTILITAIRE POUR CONSTRUIRE L'URL COMPLÈTE
-// -----------------------------------------------------------
-/**
- * Construit l'URL complète de l'image à partir de son chemin.
- * @param photoPath Le chemin de la photo (absolu ou relatif).
- * @returns L'URL complète ou null.
- */
-const getCompleteImageUrl = (photoPath: string | null): string | null => {
-  if (!photoPath) return null;
-
-  // Si c'est déjà une URL absolue, on l'utilise directement
-  if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
-    return photoPath;
-  }
-
-  // Si c'est un chemin relatif, on construit l'URL complète
-  const baseUrl = import.meta.env.VITE_STORAGE_BASE_URL;
-  if (baseUrl) {
-    // S'assurer qu'il n'y ait qu'un seul slash entre le base URL et le chemin
-    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = photoPath.startsWith('/') ? photoPath.slice(1) : photoPath;
-    return `${cleanBase}/${cleanPath}`;
-  }
-
-  // Fallback si la base URL n'est pas définie
-  return photoPath;
-};
-
-// -----------------------------------------------------------
-// ✅ COMPOSANT POUR L'AFFICHAGE DE L'IMAGE DE L'HÔTEL
-// -----------------------------------------------------------
+// Composant pour l'affichage sécurisé des images
 const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // Utilisation de useMemo pour ne recalculer l'URL que si hotel.photo change
-  const imageUrl = useMemo(() => getCompleteImageUrl(hotel.photo), [hotel.photo]);
-
-  // Réinitialiser l'erreur si l'image change
   useEffect(() => {
+    const buildImageUrl = (photoPath: string | null): string | null => {
+      if (!photoPath) return null;
+      return `http://127.0.0.1:8080/storage/${photoPath}`;
+    };
+
+    const url = buildImageUrl(hotel.photo);
+    setImageUrl(url);
     setImageError(false);
-  }, [imageUrl]);
+  }, [hotel.photo]);
 
   if (!imageUrl || imageError) {
     return (
-      <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex flex-col items-center justify-center rounded-t-lg">
-        <MdOutlineHotel className="text-4xl text-gray-500 mb-2" aria-hidden="true" />
-        <span className="text-gray-500 text-sm">
-          {!hotel.photo ? 'Aucune image' : 'Image non disponible'}
-        </span>
+      <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex flex-col items-center justify-center">
+        <MdOutlineHotel className="text-4xl text-gray-500 mb-2" />
+        <span className="text-gray-500 text-sm">Aucune image</span>
       </div>
     );
   }
@@ -98,16 +65,14 @@ const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
     <img
       src={imageUrl}
       alt={`Photo de ${hotel.name}`}
-      className="w-full h-48 object-cover rounded-t-lg"
-      onError={() => setImageError(true)}
-      loading="lazy"
+      className="w-full h-48 object-cover"
+      onError={() => {
+        setImageError(true);
+      }}
     />
   );
 };
 
-// -----------------------------------------------------------
-// ✅ COMPOSANT PRINCIPAL LIST
-// -----------------------------------------------------------
 const List: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -165,17 +130,15 @@ const List: React.FC = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
-      setError("");
       const token = localStorage.getItem("auth_token");
       let res;
       const timestamp = Date.now();
 
-      // Logique pour tenter d'abord les hôtels de l'utilisateur, puis tous les hôtels si permission refusée
       if (token) {
         try {
           res = await axios.get<Hotel[]>("/api/user/hotels", {
             headers: { Authorization: `Bearer ${token}` },
-            params: { _t: timestamp },
+            params: { _t: timestamp }, 
           });
         } catch (err) {
           if (
@@ -194,7 +157,8 @@ const List: React.FC = () => {
           params: { _t: timestamp },
         });
       }
-
+      
+      console.log("Hôtels chargés (FRESH):", res.data);
       setHotels(res.data);
     } catch (err) {
       setError("Impossible de charger les hôtels. Vérifiez votre connexion.");
@@ -235,7 +199,6 @@ const List: React.FC = () => {
       });
 
       setHotels(hotels.filter((hotel) => hotel.id !== id));
-      setError("");
     } catch (err) {
       setError("Impossible de supprimer l'hôtel. Vérifiez vos permissions.");
     }
@@ -244,7 +207,6 @@ const List: React.FC = () => {
   // ------------------- OPEN / CLOSE POPUP -------------------
   const handleOpenPopup = (hotel?: Hotel) => {
     if (hotel) {
-      // Mode édition
       if (user && hotel.user_id !== user.id) {
         setError("Vous n'êtes pas autorisé à modifier cet hôtel");
         return;
@@ -255,19 +217,19 @@ const List: React.FC = () => {
       setAddress(hotel.address);
       setEmail(hotel.email || "");
       setPhone(hotel.phone || "");
-
-      // Affichage du prix : point -> virgule
+      
+      //  PRIX POUR L'UI 
       const priceForUI = hotel.price_per_night.replace(".", ",");
       setPrice(priceForUI);
-
+      
       setCurrency(hotel.currency);
       setPhoto(null);
-      
-      // Utilisation de la fonction utilitaire pour l'URL de l'aperçu existant
-      setPhotoPreview(getCompleteImageUrl(hotel.photo));
-
+      setPhotoPreview(
+        hotel.photo
+          ? `http://127.0.0.1:8080/storage/${hotel.photo}`
+          : null
+      );
     } else {
-      // Mode création
       setIsEditing(false);
       setCurrentHotel(null);
       setName("");
@@ -298,7 +260,6 @@ const List: React.FC = () => {
     if (file) {
       setPhoto(file);
       
-      // Créer un aperçu pour l'utilisateur
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
@@ -314,7 +275,7 @@ const List: React.FC = () => {
     setError("");
 
     try {
-      // Standardisation du prix : virgule -> point pour l'API
+      //  STANDARDISATION DU PRIX 
       const standardizedPrice = price.replace(",", ".");
       
       await axios.get("/sanctum/csrf-cookie");
@@ -332,7 +293,7 @@ const List: React.FC = () => {
       formData.append("address", address);
       formData.append("email", email);
       formData.append("phone", phone);
-      formData.append("price_per_night", standardizedPrice);
+      formData.append("price_per_night", standardizedPrice); 
       formData.append("currency", currency);
       
       if (photo) {
@@ -342,21 +303,24 @@ const List: React.FC = () => {
       const config = {
         headers: { 
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data" // Nécessaire pour l'envoi de FormData (et photo)
+          "Content-Type": "multipart/form-data"
         }
       };
 
       if (isEditing && currentHotel) {
-        // Envoi en POST avec méthode PUT pour Laravel/Sanctum
+        // Correction pour l'envoi de fichiers avec PUT en Laravel
         formData.append("_method", "PUT"); 
         await axios.post(`/api/hotels/${currentHotel.id}`, formData, config);
+        
       } else {
         await axios.post("/api/hotels", formData, config);
       }
 
       handleClosePopup();
-      await fetchHotels(); // Recharger la liste
+
       
+      await fetchHotels(); 
+
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
         const apiError = err.response.data as ApiErrorResponse;
@@ -389,47 +353,55 @@ const List: React.FC = () => {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
         ></div>
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar (omitted for brevity, assume content is identical) */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#44474d] text-white flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex-1 flex flex-col p-4 bg-[#44474d]">
+<div className="flex-1 flex flex-col p-4 bg-[#44474d]">
+
           <div className="flex items-center justify-between mb-8">
+
             <div
+
               className="flex items-center gap-4 cursor-pointer"
-              onClick={() => navigate("/dashboard")}
-              aria-label="Aller au tableau de bord"
+
+              onClick={() => navigate("/login")}
+
             >
-              {/* Logo SVG */}
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 32 32"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-label="Logo RED PRODUCT"
-              >
-                <rect width="32" height="32" fill="white" />
+
+              <svg width="32" height="32" viewBox="0 0 32 32">
+
                 <path d="M2.66602 2.66624H29.3286V29.3288L2.66602 2.66624Z" fill="white" />
+
                 <path d="M2.66602 2.66624H22.663L15.9973 15.9975L2.66602 2.66624Z" fill="black" fillOpacity="0.15" />
+
                 <path d="M2.66602 2.66624H15.9973L2.66602 29.3288V2.66624Z" fill="white" />
+
               </svg>
+
               <h2 className="text-lg font-semibold">RED PRODUCT</h2>
+
             </div>
+
             <button
-              className="lg:hidden text-white hover:bg-gray-700 p-1 rounded transition-colors"
+
+              className="lg:hidden text-white"
+
               onClick={() => setSidebarOpen(false)}
-              aria-label="Fermer le menu"
+
             >
-              <FiX size={24} aria-hidden="true" />
+
+              <FiX size={24} />
+
             </button>
+
           </div>
+
 
           <nav className="space-y-2 flex-1">
             <NavLink
@@ -441,8 +413,7 @@ const List: React.FC = () => {
               }
               onClick={() => setSidebarOpen(false)}
             >
-              <BsHouseDoor size={20} aria-hidden="true" />
-              <span>Dashboard</span>
+              <BsHouseDoor size={20} /> Dashboard
             </NavLink>
             <NavLink
               to="/list"
@@ -453,12 +424,11 @@ const List: React.FC = () => {
               }
               onClick={() => setSidebarOpen(false)}
             >
-              <MdOutlineHotel size={20} aria-hidden="true" />
-              <span>Liste des hôtels</span>
+              <MdOutlineHotel size={20} /> Liste des hôtels
             </NavLink>
           </nav>
 
-          <div className="flex flex-col items-center p-4 rounded-lg mt-4">
+          <div className="flex flex-col items-center p-4 rounded-lg mt-4 ">
             <div className="w-12 h-12 rounded-full bg-[#ffa500] flex items-center justify-center text-white font-bold mb-2">
               {getInitials(user?.name)}
             </div>
@@ -470,37 +440,32 @@ const List: React.FC = () => {
 
       {/* Contenu principal */}
       <main className="flex-1 flex flex-col lg:ml-0 min-h-screen">
-        {/* Navbar */}
+        {/* Navbar (omitted for brevity, assume content is identical) */}
         <div className="bg-white shadow-sm flex items-center justify-between p-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button
-              className="lg:hidden text-gray-600 hover:bg-gray-100 p-2 rounded transition-colors"
+              className="lg:hidden text-gray-600"
               onClick={toggleSidebar}
-              aria-label="Ouvrir le menu"
             >
-              <FiMenu size={24} aria-hidden="true" />
+              <FiMenu size={24} />
             </button>
             <h1 className="text-xl font-semibold text-gray-800">Liste des hôtels</h1>
           </div>
 
           <div className="flex items-center gap-3 lg:gap-4">
             <div className="relative hidden md:block">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" aria-hidden="true" />
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Rechercher un hôtel..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-40 lg:w-56"
-                aria-label="Rechercher un hôtel"
+                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-40 lg:w-56"
               />
             </div>
             <div className="flex items-center gap-3">
-              <button
-                className="relative text-gray-600 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100 transition-colors"
-                aria-label="Notifications"
-              >
-                <FiBell size={20} aria-hidden="true" />
+              <button className="relative text-gray-600 hover:text-gray-800 p-2">
+                <FiBell size={20} />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">3</span>
               </button>
               <div className="hidden sm:flex items-center gap-2">
@@ -510,11 +475,10 @@ const List: React.FC = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-red-600 p-2"
                 title="Déconnexion"
-                aria-label="Déconnexion"
               >
-                <FiLogOut size={20} aria-hidden="true" />
+                <FiLogOut size={20} />
               </button>
             </div>
           </div>
@@ -523,14 +487,13 @@ const List: React.FC = () => {
         {/* Search mobile */}
         <div className="px-4 md:hidden mb-4 mt-4">
           <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Rechercher un hôtel..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
-              aria-label="Rechercher un hôtel"
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
             />
           </div>
         </div>
@@ -545,11 +508,9 @@ const List: React.FC = () => {
           </div>
           <button
             onClick={() => handleOpenPopup()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors font-medium"
-            aria-label="Créer un nouvel hôtel"
+            className="flex items-center gap-2 px-4 py-2 bg-white-500 text-black rounded-lg shadow hover:bg-blue-600 transition-colors font-medium"
           >
-            <AiOutlinePlus size={18} aria-hidden="true" />
-            <span>Créer un nouvel hôtel</span>
+            <AiOutlinePlus size={18} /> Créer un nouveau hôtel
           </button>
         </div>
 
@@ -566,7 +527,7 @@ const List: React.FC = () => {
         {/* Loading */}
         {loading && hotels.length === 0 && (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" aria-label="Chargement en cours"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
         )}
 
@@ -580,36 +541,34 @@ const List: React.FC = () => {
                   className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100"
                 >
                   <HotelImage hotel={hotel} />
-
+                  
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">{hotel.name}</h3>
                     <p className="text-gray-600 text-sm truncate mb-2 flex items-center">
                       <span className="truncate">{hotel.address}</span>
                     </p>
-
+                    
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-blue-600 font-semibold">
-                        {/* Affichage : prix formaté avec une virgule */}
-                        {hotel.price_per_night.replace(".", ",")} {hotel.currency}
+                        {/* Affichage: utiliser le prix tel quel (qui contient le point si l'API l'a envoyé) */}
+                        {hotel.price_per_night} {hotel.currency}
                         <span className="text-gray-500 text-xs font-normal ml-1">/nuit</span>
                       </span>
-
+                      
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleOpenPopup(hotel)}
                           className="text-blue-500 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors"
                           title="Modifier"
-                          aria-label={`Modifier ${hotel.name}`}
                         >
-                          <FaEdit size={14} aria-hidden="true" />
+                          <FaEdit size={14} />
                         </button>
                         <button
                           onClick={() => handleDelete(hotel.id)}
                           className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
                           title="Supprimer"
-                          aria-label={`Supprimer ${hotel.name}`}
                         >
-                          <FaTrash size={14} aria-hidden="true" />
+                          <FaTrash size={14} />
                         </button>
                       </div>
                     </div>
@@ -619,24 +578,22 @@ const List: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white rounded-xl shadow-sm border border-gray-200">
-              <MdOutlineHotel className="text-6xl text-gray-300 mb-4" aria-hidden="true" />
+              <MdOutlineHotel className="text-6xl text-gray-300 mb-4" />
               <h3 className="text-xl font-semibold text-gray-500 text-center mb-2">
                 {searchTerm ? "Aucun hôtel trouvé" : "Aucun hôtel"}
               </h3>
               <p className="text-gray-400 text-center mb-6">
-                {searchTerm
-                  ? "Aucun résultat ne correspond à votre recherche"
+                {searchTerm 
+                  ? "Aucun résultat ne correspond à votre recherche" 
                   : "Commencez par créer votre premier hôtel"
                 }
               </p>
               {!searchTerm && (
                 <button
                   onClick={() => handleOpenPopup()}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  aria-label="Créer un hôtel"
+                  className="flex items-center gap-2 px-4 py-2 bg-white-500 text-black rounded-lg hover:bg-blue-600 transition-colors"
                 >
-                  <AiOutlinePlus aria-hidden="true" />
-                  <span>Créer un hôtel</span>
+                  <AiOutlinePlus /> Créer un hôtel
                 </button>
               )}
             </div>
@@ -654,10 +611,9 @@ const List: React.FC = () => {
               </h2>
               <button
                 onClick={handleClosePopup}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
-                aria-label="Fermer"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
               >
-                <FiX size={20} aria-hidden="true" />
+                <FiX size={20} />
               </button>
             </div>
 
@@ -671,11 +627,10 @@ const List: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Nom */}
                 <div className="md:col-span-2">
-                  <label htmlFor="hotel-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nom de l'hôtel *
                   </label>
                   <input
-                    id="hotel-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -687,11 +642,10 @@ const List: React.FC = () => {
 
                 {/* Adresse */}
                 <div className="md:col-span-2">
-                  <label htmlFor="hotel-address" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Adresse complète *
                   </label>
                   <input
-                    id="hotel-address"
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
@@ -703,11 +657,10 @@ const List: React.FC = () => {
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="hotel-email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email
                   </label>
                   <input
-                    id="hotel-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -718,11 +671,10 @@ const List: React.FC = () => {
 
                 {/* Téléphone */}
                 <div>
-                  <label htmlFor="hotel-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Téléphone
                   </label>
                   <input
-                    id="hotel-phone"
                     type="text"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -733,12 +685,14 @@ const List: React.FC = () => {
 
                 {/* Prix */}
                 <div>
-                  <label htmlFor="hotel-price" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Prix par nuit *
                   </label>
+                  {/* Note: l'input type="number" ignore le remplacement de la virgule pour l'API. 
+                       Pour supporter à la fois la virgule dans l'UI et le point dans l'API, 
+                       il est souvent préférable d'utiliser type="text" et de valider côté client/serveur. */}
                   <input
-                    id="hotel-price"
-                    type="text"
+                    type="text" 
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -749,11 +703,10 @@ const List: React.FC = () => {
 
                 {/* Devise */}
                 <div>
-                  <label htmlFor="hotel-currency" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Devise *
                   </label>
                   <select
-                    id="hotel-currency"
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -767,24 +720,23 @@ const List: React.FC = () => {
 
                 {/* Photo */}
                 <div className="md:col-span-2">
-                  <label htmlFor="hotel-photo" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Photo de l'hôtel
                   </label>
                   <input
-                    id="hotel-photo"
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-
-                  {/* Aperçu de la photo (pour nouveau fichier ou URL existante) */}
-                  {photoPreview && (
+                  
+                  {/* Aperçu de la photo */}
+                  {(photoPreview || (currentHotel?.photo && !photo)) && (
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
-                        src={photoPreview}
-                        alt="Aperçu de l'hôtel"
+                        src={photoPreview || (currentHotel?.photo ? `http://127.0.0.1:8080/storage/${currentHotel.photo}` : '')}
+                        alt="Aperçu"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />
                     </div>
@@ -809,7 +761,7 @@ const List: React.FC = () => {
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       {isEditing ? "Mise à jour..." : "Création..."}
                     </>
                   ) : (
