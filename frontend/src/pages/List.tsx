@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { FiLogOut, FiSearch, FiBell, FiMenu, FiX } from "react-icons/fi";
 import { BsHouseDoor } from "react-icons/bs";
 import { MdOutlineHotel } from "react-icons/md";
@@ -37,37 +37,51 @@ interface Hotel {
 }
 
 // -----------------------------------------------------------
+// ✅ FONCTION UTILITAIRE POUR CONSTRUIRE L'URL COMPLÈTE
+// -----------------------------------------------------------
+/**
+ * Construit l'URL complète de l'image.
+ * @param photoPath Le chemin de la photo (absolu ou relatif).
+ * @returns L'URL complète ou null.
+ */
+const getCompleteImageUrl = (photoPath: string | null): string | null => {
+  if (!photoPath) return null;
+
+  // Si c'est déjà une URL absolue, on l'utilise directement
+  if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+    return photoPath;
+  }
+
+  // Si c'est un chemin relatif, on construit l'URL complète
+  const baseUrl = import.meta.env.VITE_STORAGE_BASE_URL;
+  if (baseUrl) {
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const cleanPath = photoPath.startsWith('/') ? photoPath.slice(1) : photoPath;
+    return `${cleanBase}/${cleanPath}`;
+  }
+
+  // En dernier recours, retourne le chemin tel quel
+  return photoPath;
+};
+
+// -----------------------------------------------------------
 // ✅ COMPOSANT CORRIGÉ POUR L'AFFICHAGE DES IMAGES
 // -----------------------------------------------------------
 const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   const [imageError, setImageError] = useState(false);
 
-  // Construction correcte de l'URL de l'image
-  const getImageUrl = () => {
-    if (!hotel.photo) return null;
+  // Utilisation de useMemo pour ne recalculer l'URL que si hotel.photo change
+  const imageUrl = useMemo(() => getCompleteImageUrl(hotel.photo), [hotel.photo]);
 
-    // Si l'API renvoie déjà une URL absolue, on l'utilise directement
-    if (hotel.photo.startsWith('http://') || hotel.photo.startsWith('https://')) {
-      return hotel.photo;
-    }
-
-    // Si c'est un chemin relatif, on construit l'URL complète
-    const baseUrl = import.meta.env.VITE_STORAGE_BASE_URL;
-    if (baseUrl) {
-      const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-      const cleanPath = hotel.photo.startsWith('/') ? hotel.photo.slice(1) : hotel.photo;
-      return `${cleanBase}/${cleanPath}`;
-    }
-
-    return hotel.photo;
-  };
-
-  const imageUrl = getImageUrl();
+  // Réinitialiser l'erreur si l'image change
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
 
   if (!imageUrl || imageError) {
     return (
       <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex flex-col items-center justify-center rounded-t-lg">
-        <MdOutlineHotel className="text-4xl text-gray-500 mb-2" />
+        <MdOutlineHotel className="text-4xl text-gray-500 mb-2" aria-hidden="true" />
         <span className="text-gray-500 text-sm">
           {!hotel.photo ? 'Aucune image' : 'Image non disponible'}
         </span>
@@ -86,6 +100,9 @@ const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   );
 };
 
+// -----------------------------------------------------------
+// ✅ COMPOSANT PRINCIPAL LIST
+// -----------------------------------------------------------
 const List: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -132,6 +149,7 @@ const List: React.FC = () => {
         });
         setUser(res.data);
       } catch (err) {
+        // Rediriger si le token n'est pas valide ou l'API échoue
         localStorage.removeItem("auth_token");
         navigate("/login");
       }
@@ -143,6 +161,7 @@ const List: React.FC = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
+      setError(""); // Réinitialiser l'erreur avant la nouvelle requête
       const token = localStorage.getItem("auth_token");
       let res;
       const timestamp = Date.now();
@@ -158,12 +177,12 @@ const List: React.FC = () => {
             axios.isAxiosError(err) &&
             (err.response?.status === 401 || err.response?.status === 403)
           ) {
+            // Tentative de récupérer tous les hôtels si l'utilisateur n'a pas accès à /user/hotels
             res = await axios.get<Hotel[]>("/api/hotels", {
               params: { _t: timestamp },
             });
           } else {
             throw err;
-            
           }
         }
       } else {
@@ -171,7 +190,7 @@ const List: React.FC = () => {
           params: { _t: timestamp },
         });
       }
-      
+
       console.log("Hôtels chargés:", res.data);
       setHotels(res.data);
     } catch (err) {
@@ -213,6 +232,7 @@ const List: React.FC = () => {
       });
 
       setHotels(hotels.filter((hotel) => hotel.id !== id));
+      setError(""); // Réinitialiser l'erreur après succès
     } catch (err) {
       setError("Impossible de supprimer l'hôtel. Vérifiez vos permissions.");
     }
@@ -231,16 +251,17 @@ const List: React.FC = () => {
       setAddress(hotel.address);
       setEmail(hotel.email || "");
       setPhone(hotel.phone || "");
-      
+
       // Prix pour l'UI
       const priceForUI = hotel.price_per_night.replace(".", ",");
       setPrice(priceForUI);
-      
+
       setCurrency(hotel.currency);
       setPhoto(null);
-      
-      // ✅ CORRECTION : Utiliser directement l'URL de l'API
-      setPhotoPreview(hotel.photo ? hotel.photo : null);
+
+      // ✅ CORRECTION/AMÉLIORATION : Utiliser la fonction utilitaire pour l'URL complète
+      setPhotoPreview(getCompleteImageUrl(hotel.photo));
+
     } else {
       setIsEditing(false);
       setCurrentHotel(null);
@@ -251,7 +272,7 @@ const List: React.FC = () => {
       setPrice("");
       setCurrency("F XOF");
       setPhoto(null);
-      setPhotoPreview(null);
+      setPhotoPreview(null); // ✅ CORRECTION : Ajout de la réinitialisation pour la création
     }
     setShowPopup(true);
     setError("");
@@ -271,7 +292,7 @@ const List: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setPhoto(file);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
@@ -287,11 +308,12 @@ const List: React.FC = () => {
     setError("");
 
     try {
+      // S'assurer que le prix est envoyé avec un point comme séparateur décimal (convention API)
       const standardizedPrice = price.replace(",", ".");
-      
+
       await axios.get("/sanctum/csrf-cookie");
       const token = localStorage.getItem("auth_token");
-      
+
       if (!token) {
         setError("Token d'authentification manquant");
         setLoading(false);
@@ -299,26 +321,27 @@ const List: React.FC = () => {
       }
 
       const formData = new FormData();
-      
+
       formData.append("name", name);
       formData.append("address", address);
       formData.append("email", email);
       formData.append("phone", phone);
       formData.append("price_per_night", standardizedPrice);
       formData.append("currency", currency);
-      
+
       if (photo) {
         formData.append("photo", photo);
       }
 
       const config = {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data"
         }
       };
 
       if (isEditing && currentHotel) {
+        // Pour Laravel, l'envoi de FormData pour un update nécessite POST avec _method=PUT
         formData.append("_method", "PUT");
         await axios.post(`/api/hotels/${currentHotel.id}`, formData, config);
       } else {
@@ -332,6 +355,7 @@ const List: React.FC = () => {
       if (axios.isAxiosError(err) && err.response) {
         const apiError = err.response.data as ApiErrorResponse;
         if (apiError.errors) {
+          // Afficher les erreurs de validation
           const validationErrors = Object.values(apiError.errors).flat().join(", ");
           setError(`Erreurs de validation: ${validationErrors}`);
         } else if (apiError.message) {
@@ -360,6 +384,7 @@ const List: React.FC = () => {
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         ></div>
       )}
 
@@ -373,14 +398,15 @@ const List: React.FC = () => {
           <div className="flex items-center justify-between mb-8">
             <div
               className="flex items-center gap-4 cursor-pointer"
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/dashboard")} // Renvoie au dashboard, pas au login
+              aria-label="Aller au tableau de bord"
             >
-              {/* ✅ SVG corrigé avec viewBox et dimensions explicites */}
-              <svg 
-                width="32" 
-                height="32" 
-                viewBox="0 0 32 32" 
-                fill="none" 
+              {/* SVG corrigé avec viewBox et dimensions explicites */}
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 32 32"
+                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 aria-label="Logo RED PRODUCT"
               >
@@ -396,7 +422,7 @@ const List: React.FC = () => {
               onClick={() => setSidebarOpen(false)}
               aria-label="Fermer le menu"
             >
-              <FiX size={24} />
+              <FiX size={24} aria-hidden="true" />
             </button>
           </div>
 
@@ -410,7 +436,7 @@ const List: React.FC = () => {
               }
               onClick={() => setSidebarOpen(false)}
             >
-              <BsHouseDoor size={20} aria-hidden="true" /> 
+              <BsHouseDoor size={20} aria-hidden="true" />
               <span>Dashboard</span>
             </NavLink>
             <NavLink
@@ -422,7 +448,7 @@ const List: React.FC = () => {
               }
               onClick={() => setSidebarOpen(false)}
             >
-              <MdOutlineHotel size={20} aria-hidden="true" /> 
+              <MdOutlineHotel size={20} aria-hidden="true" />
               <span>Liste des hôtels</span>
             </NavLink>
           </nav>
@@ -465,7 +491,7 @@ const List: React.FC = () => {
               />
             </div>
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 className="relative text-gray-600 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100 transition-colors"
                 aria-label="Notifications"
               >
@@ -517,7 +543,7 @@ const List: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors font-medium"
             aria-label="Créer un nouvel hôtel"
           >
-            <AiOutlinePlus size={18} aria-hidden="true" /> 
+            <AiOutlinePlus size={18} aria-hidden="true" />
             <span>Créer un nouvel hôtel</span>
           </button>
         </div>
@@ -548,21 +574,20 @@ const List: React.FC = () => {
                   key={hotel.id}
                   className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100"
                 >
-                  {/* ✅ COMPOSANT IMAGE CORRIGÉ */}
                   <HotelImage hotel={hotel} />
-                  
+
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">{hotel.name}</h3>
                     <p className="text-gray-600 text-sm truncate mb-2 flex items-center">
                       <span className="truncate">{hotel.address}</span>
                     </p>
-                    
+
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-blue-600 font-semibold">
                         {hotel.price_per_night} {hotel.currency}
                         <span className="text-gray-500 text-xs font-normal ml-1">/nuit</span>
                       </span>
-                      
+
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleOpenPopup(hotel)}
@@ -593,8 +618,8 @@ const List: React.FC = () => {
                 {searchTerm ? "Aucun hôtel trouvé" : "Aucun hôtel"}
               </h3>
               <p className="text-gray-400 text-center mb-6">
-                {searchTerm 
-                  ? "Aucun résultat ne correspond à votre recherche" 
+                {searchTerm
+                  ? "Aucun résultat ne correspond à votre recherche"
                   : "Commencez par créer votre premier hôtel"
                 }
               </p>
@@ -604,7 +629,7 @@ const List: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                   aria-label="Créer un hôtel"
                 >
-                  <AiOutlinePlus aria-hidden="true" /> 
+                  <AiOutlinePlus aria-hidden="true" />
                   <span>Créer un hôtel</span>
                 </button>
               )}
@@ -746,13 +771,13 @@ const List: React.FC = () => {
                     onChange={handlePhotoChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  
+
                   {/* Aperçu de la photo */}
-                  {(photoPreview || (currentHotel?.photo && !photo)) && (
+                  {photoPreview && ( // Utilisez photoPreview pour l'aperçu du fichier ou de l'URL existante
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
-                        src={photoPreview || currentHotel!.photo}
+                        src={photoPreview}
                         alt="Aperçu de l'hôtel"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />
