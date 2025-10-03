@@ -11,6 +11,10 @@ import axios from "axios";
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true;
 
+// -----------------------------------------------------------
+// ✅ INTERFACES
+// -----------------------------------------------------------
+
 interface ApiErrorResponse {
   message?: string;
   error?: string;
@@ -40,7 +44,7 @@ interface Hotel {
 // ✅ FONCTION UTILITAIRE POUR CONSTRUIRE L'URL COMPLÈTE
 // -----------------------------------------------------------
 /**
- * Construit l'URL complète de l'image.
+ * Construit l'URL complète de l'image à partir de son chemin.
  * @param photoPath Le chemin de la photo (absolu ou relatif).
  * @returns L'URL complète ou null.
  */
@@ -55,17 +59,18 @@ const getCompleteImageUrl = (photoPath: string | null): string | null => {
   // Si c'est un chemin relatif, on construit l'URL complète
   const baseUrl = import.meta.env.VITE_STORAGE_BASE_URL;
   if (baseUrl) {
+    // S'assurer qu'il n'y ait qu'un seul slash entre le base URL et le chemin
     const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     const cleanPath = photoPath.startsWith('/') ? photoPath.slice(1) : photoPath;
     return `${cleanBase}/${cleanPath}`;
   }
 
-  // En dernier recours, retourne le chemin tel quel
+  // Fallback si la base URL n'est pas définie
   return photoPath;
 };
 
 // -----------------------------------------------------------
-// ✅ COMPOSANT CORRIGÉ POUR L'AFFICHAGE DES IMAGES
+// ✅ COMPOSANT POUR L'AFFICHAGE DE L'IMAGE DE L'HÔTEL
 // -----------------------------------------------------------
 const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   const [imageError, setImageError] = useState(false);
@@ -149,7 +154,6 @@ const List: React.FC = () => {
         });
         setUser(res.data);
       } catch (err) {
-        // Rediriger si le token n'est pas valide ou l'API échoue
         localStorage.removeItem("auth_token");
         navigate("/login");
       }
@@ -161,11 +165,12 @@ const List: React.FC = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
-      setError(""); // Réinitialiser l'erreur avant la nouvelle requête
+      setError("");
       const token = localStorage.getItem("auth_token");
       let res;
       const timestamp = Date.now();
 
+      // Logique pour tenter d'abord les hôtels de l'utilisateur, puis tous les hôtels si permission refusée
       if (token) {
         try {
           res = await axios.get<Hotel[]>("/api/user/hotels", {
@@ -177,7 +182,6 @@ const List: React.FC = () => {
             axios.isAxiosError(err) &&
             (err.response?.status === 401 || err.response?.status === 403)
           ) {
-            // Tentative de récupérer tous les hôtels si l'utilisateur n'a pas accès à /user/hotels
             res = await axios.get<Hotel[]>("/api/hotels", {
               params: { _t: timestamp },
             });
@@ -191,7 +195,6 @@ const List: React.FC = () => {
         });
       }
 
-      console.log("Hôtels chargés:", res.data);
       setHotels(res.data);
     } catch (err) {
       setError("Impossible de charger les hôtels. Vérifiez votre connexion.");
@@ -232,7 +235,7 @@ const List: React.FC = () => {
       });
 
       setHotels(hotels.filter((hotel) => hotel.id !== id));
-      setError(""); // Réinitialiser l'erreur après succès
+      setError("");
     } catch (err) {
       setError("Impossible de supprimer l'hôtel. Vérifiez vos permissions.");
     }
@@ -241,6 +244,7 @@ const List: React.FC = () => {
   // ------------------- OPEN / CLOSE POPUP -------------------
   const handleOpenPopup = (hotel?: Hotel) => {
     if (hotel) {
+      // Mode édition
       if (user && hotel.user_id !== user.id) {
         setError("Vous n'êtes pas autorisé à modifier cet hôtel");
         return;
@@ -252,17 +256,18 @@ const List: React.FC = () => {
       setEmail(hotel.email || "");
       setPhone(hotel.phone || "");
 
-      // Prix pour l'UI
+      // Affichage du prix : point -> virgule
       const priceForUI = hotel.price_per_night.replace(".", ",");
       setPrice(priceForUI);
 
       setCurrency(hotel.currency);
       setPhoto(null);
-
-      // ✅ CORRECTION/AMÉLIORATION : Utiliser la fonction utilitaire pour l'URL complète
+      
+      // Utilisation de la fonction utilitaire pour l'URL de l'aperçu existant
       setPhotoPreview(getCompleteImageUrl(hotel.photo));
 
     } else {
+      // Mode création
       setIsEditing(false);
       setCurrentHotel(null);
       setName("");
@@ -272,7 +277,7 @@ const List: React.FC = () => {
       setPrice("");
       setCurrency("F XOF");
       setPhoto(null);
-      setPhotoPreview(null); // ✅ CORRECTION : Ajout de la réinitialisation pour la création
+      setPhotoPreview(null);
     }
     setShowPopup(true);
     setError("");
@@ -292,7 +297,8 @@ const List: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setPhoto(file);
-
+      
+      // Créer un aperçu pour l'utilisateur
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
@@ -308,12 +314,12 @@ const List: React.FC = () => {
     setError("");
 
     try {
-      // S'assurer que le prix est envoyé avec un point comme séparateur décimal (convention API)
+      // Standardisation du prix : virgule -> point pour l'API
       const standardizedPrice = price.replace(",", ".");
-
+      
       await axios.get("/sanctum/csrf-cookie");
       const token = localStorage.getItem("auth_token");
-
+      
       if (!token) {
         setError("Token d'authentification manquant");
         setLoading(false);
@@ -321,41 +327,40 @@ const List: React.FC = () => {
       }
 
       const formData = new FormData();
-
+      
       formData.append("name", name);
       formData.append("address", address);
       formData.append("email", email);
       formData.append("phone", phone);
       formData.append("price_per_night", standardizedPrice);
       formData.append("currency", currency);
-
+      
       if (photo) {
         formData.append("photo", photo);
       }
 
       const config = {
-        headers: {
+        headers: { 
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data"
+          "Content-Type": "multipart/form-data" // Nécessaire pour l'envoi de FormData (et photo)
         }
       };
 
       if (isEditing && currentHotel) {
-        // Pour Laravel, l'envoi de FormData pour un update nécessite POST avec _method=PUT
-        formData.append("_method", "PUT");
+        // Envoi en POST avec méthode PUT pour Laravel/Sanctum
+        formData.append("_method", "PUT"); 
         await axios.post(`/api/hotels/${currentHotel.id}`, formData, config);
       } else {
         await axios.post("/api/hotels", formData, config);
       }
 
       handleClosePopup();
-      await fetchHotels();
-
+      await fetchHotels(); // Recharger la liste
+      
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
         const apiError = err.response.data as ApiErrorResponse;
         if (apiError.errors) {
-          // Afficher les erreurs de validation
           const validationErrors = Object.values(apiError.errors).flat().join(", ");
           setError(`Erreurs de validation: ${validationErrors}`);
         } else if (apiError.message) {
@@ -398,10 +403,10 @@ const List: React.FC = () => {
           <div className="flex items-center justify-between mb-8">
             <div
               className="flex items-center gap-4 cursor-pointer"
-              onClick={() => navigate("/dashboard")} // Renvoie au dashboard, pas au login
+              onClick={() => navigate("/dashboard")}
               aria-label="Aller au tableau de bord"
             >
-              {/* SVG corrigé avec viewBox et dimensions explicites */}
+              {/* Logo SVG */}
               <svg
                 width="32"
                 height="32"
@@ -584,7 +589,8 @@ const List: React.FC = () => {
 
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-blue-600 font-semibold">
-                        {hotel.price_per_night} {hotel.currency}
+                        {/* Affichage : prix formaté avec une virgule */}
+                        {hotel.price_per_night.replace(".", ",")} {hotel.currency}
                         <span className="text-gray-500 text-xs font-normal ml-1">/nuit</span>
                       </span>
 
@@ -772,8 +778,8 @@ const List: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
 
-                  {/* Aperçu de la photo */}
-                  {photoPreview && ( // Utilisez photoPreview pour l'aperçu du fichier ou de l'URL existante
+                  {/* Aperçu de la photo (pour nouveau fichier ou URL existante) */}
+                  {photoPreview && (
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
