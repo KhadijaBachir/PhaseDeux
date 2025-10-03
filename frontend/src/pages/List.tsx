@@ -5,10 +5,11 @@ import { MdOutlineHotel } from "react-icons/md";
 import { AiOutlinePlus } from "react-icons/ai";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
-import axios, { AxiosError } from "axios";
+// CORRECTION : Suppression de '{ AxiosError }' qui n'était pas utilisé (erreur TS6133)
+import axios from "axios";
 
 // Configuration Axios globale
-axios.defaults.baseURL = "http://127.0.0.1:8080";
+axios.defaults.baseURL =  import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true;
 
 interface ApiErrorResponse {
@@ -44,7 +45,7 @@ const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   useEffect(() => {
     const buildImageUrl = (photoPath: string | null): string | null => {
       if (!photoPath) return null;
-      return `http://127.0.0.1:8080/storage/${photoPath}`;
+      return `${import.meta.env.VITE_STORAGE_BASE_URL}/${photoPath}`; 
     };
 
     const url = buildImageUrl(hotel.photo);
@@ -218,7 +219,7 @@ const List: React.FC = () => {
       setEmail(hotel.email || "");
       setPhone(hotel.phone || "");
       
-      //  PRIX POUR L'UI 
+      // PRIX POUR L'UI 
       const priceForUI = hotel.price_per_night.replace(".", ",");
       setPrice(priceForUI);
       
@@ -226,7 +227,7 @@ const List: React.FC = () => {
       setPhoto(null);
       setPhotoPreview(
         hotel.photo
-          ? `http://127.0.0.1:8080/storage/${hotel.photo}`
+        ? `${import.meta.env.VITE_STORAGE_BASE_URL}/${hotel.photo}` 
           : null
       );
     } else {
@@ -275,7 +276,7 @@ const List: React.FC = () => {
     setError("");
 
     try {
-      //  STANDARDISATION DU PRIX 
+     
       const standardizedPrice = price.replace(",", ".");
       
       await axios.get("/sanctum/csrf-cookie");
@@ -689,8 +690,8 @@ const List: React.FC = () => {
                     Prix par nuit *
                   </label>
                   {/* Note: l'input type="number" ignore le remplacement de la virgule pour l'API. 
-                       Pour supporter à la fois la virgule dans l'UI et le point dans l'API, 
-                       il est souvent préférable d'utiliser type="text" et de valider côté client/serveur. */}
+                      Pour supporter à la fois la virgule dans l'UI et le point dans l'API, 
+                      il est souvent préférable d'utiliser type="text" et de valider côté client/serveur. */}
                   <input
                     type="text" 
                     value={price}
@@ -735,7 +736,7 @@ const List: React.FC = () => {
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
-                        src={photoPreview || (currentHotel?.photo ? `http://127.0.0.1:8080/storage/${currentHotel.photo}` : '')}
+                        src={photoPreview || (currentHotel?.photo ? `${import.meta.env.VITE_STORAGE_BASE_URL}/${currentHotel.photo}` : '')}
                         alt="Aperçu"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />

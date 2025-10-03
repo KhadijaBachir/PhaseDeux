@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios, { AxiosError } from "axios";
 
 // Configuration Axios globale
-axios.defaults.baseURL = "http://127.0.0.1:8080";
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true;
 
 // Interface pour la réponse d'erreur de l'API

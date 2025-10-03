@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 // Configuration Axios
 // Utilise axios.defaults.baseURL si tu veux une config globale,
 // sinon garde cette constante si tu préfères une URL spécifique à ce composant.
-const API_BASE_URL = "http://127.0.0.1:8080"; 
+const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL;
 
 // Interface pour la réponse d'erreur de l'API
 interface ApiErrorResponse {
