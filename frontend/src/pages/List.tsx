@@ -5,11 +5,10 @@ import { MdOutlineHotel } from "react-icons/md";
 import { AiOutlinePlus } from "react-icons/ai";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
-// CORRECTION : Suppression de '{ AxiosError }' qui n'était pas utilisé (erreur TS6133)
 import axios from "axios";
 
 // Configuration Axios globale
-axios.defaults.baseURL =  import.meta.env.VITE_API_BASE_URL;
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true;
 
 interface ApiErrorResponse {
@@ -40,18 +39,13 @@ interface Hotel {
 // Composant pour l'affichage sécurisé des images
 const HotelImage: React.FC<{ hotel: Hotel }> = ({ hotel }) => {
   const [imageError, setImageError] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    const buildImageUrl = (photoPath: string | null): string | null => {
-      if (!photoPath) return null;
-      return `${import.meta.env.VITE_STORAGE_BASE_URL}/${photoPath}`; 
-    };
-
-    const url = buildImageUrl(hotel.photo);
-    setImageUrl(url);
-    setImageError(false);
-  }, [hotel.photo]);
+  // Si photo est une URL absolue (commence par "http"), on utilise directement, sinon on construit
+  const imageUrl = hotel.photo
+    ? hotel.photo.startsWith("http")
+      ? hotel.photo
+      : `${import.meta.env.VITE_STORAGE_BASE_URL}/${hotel.photo}`
+    : null;
 
   if (!imageUrl || imageError) {
     return (
@@ -139,7 +133,7 @@ const List: React.FC = () => {
         try {
           res = await axios.get<Hotel[]>("/api/user/hotels", {
             headers: { Authorization: `Bearer ${token}` },
-            params: { _t: timestamp }, 
+            params: { _t: timestamp },
           });
         } catch (err) {
           if (
@@ -158,7 +152,7 @@ const List: React.FC = () => {
           params: { _t: timestamp },
         });
       }
-      
+
       console.log("Hôtels chargés (FRESH):", res.data);
       setHotels(res.data);
     } catch (err) {
@@ -218,18 +212,21 @@ const List: React.FC = () => {
       setAddress(hotel.address);
       setEmail(hotel.email || "");
       setPhone(hotel.phone || "");
-      
-      // PRIX POUR L'UI 
+
+      // PRIX POUR L'UI
       const priceForUI = hotel.price_per_night.replace(".", ",");
       setPrice(priceForUI);
-      
+
       setCurrency(hotel.currency);
       setPhoto(null);
-      setPhotoPreview(
-        hotel.photo
-        ? `${import.meta.env.VITE_STORAGE_BASE_URL}/${hotel.photo}` 
-          : null
-      );
+
+      // Aperçu : si hotel.photo est URL absolue, on l’utilise ; sinon on le complète
+      const previewUrl = hotel.photo
+        ? hotel.photo.startsWith("http")
+          ? hotel.photo
+          : `${import.meta.env.VITE_STORAGE_BASE_URL}/${hotel.photo}`
+        : null;
+      setPhotoPreview(previewUrl);
     } else {
       setIsEditing(false);
       setCurrentHotel(null);
@@ -260,7 +257,7 @@ const List: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setPhoto(file);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
@@ -276,12 +273,11 @@ const List: React.FC = () => {
     setError("");
 
     try {
-     
       const standardizedPrice = price.replace(",", ".");
-      
+
       await axios.get("/sanctum/csrf-cookie");
       const token = localStorage.getItem("auth_token");
-      
+
       if (!token) {
         setError("Token d'authentification manquant");
         setLoading(false);
@@ -289,44 +285,42 @@ const List: React.FC = () => {
       }
 
       const formData = new FormData();
-      
+
       formData.append("name", name);
       formData.append("address", address);
       formData.append("email", email);
       formData.append("phone", phone);
-      formData.append("price_per_night", standardizedPrice); 
+      formData.append("price_per_night", standardizedPrice);
       formData.append("currency", currency);
-      
+
       if (photo) {
         formData.append("photo", photo);
       }
 
       const config = {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data"
-        }
+          "Content-Type": "multipart/form-data",
+        },
       };
 
       if (isEditing && currentHotel) {
-        // Correction pour l'envoi de fichiers avec PUT en Laravel
-        formData.append("_method", "PUT"); 
+        formData.append("_method", "PUT");
         await axios.post(`/api/hotels/${currentHotel.id}`, formData, config);
-        
       } else {
         await axios.post("/api/hotels", formData, config);
       }
 
       handleClosePopup();
 
-      
-      await fetchHotels(); 
-
+      await fetchHotels();
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
         const apiError = err.response.data as ApiErrorResponse;
         if (apiError.errors) {
-          const validationErrors = Object.values(apiError.errors).flat().join(", ");
+          const validationErrors = Object.values(apiError.errors)
+            .flat()
+            .join(", ");
           setError(`Erreurs de validation: ${validationErrors}`);
         } else if (apiError.message) {
           setError(apiError.message);
@@ -363,53 +357,45 @@ const List: React.FC = () => {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-<div className="flex-1 flex flex-col p-4 bg-[#44474d]">
-
+        <div className="flex-1 flex flex-col p-4 bg-[#44474d]">
           <div className="flex items-center justify-between mb-8">
-
             <div
-
               className="flex items-center gap-4 cursor-pointer"
-
               onClick={() => navigate("/login")}
-
             >
-
               <svg width="32" height="32" viewBox="0 0 32 32">
-
-                <path d="M2.66602 2.66624H29.3286V29.3288L2.66602 2.66624Z" fill="white" />
-
-                <path d="M2.66602 2.66624H22.663L15.9973 15.9975L2.66602 2.66624Z" fill="black" fillOpacity="0.15" />
-
-                <path d="M2.66602 2.66624H15.9973L2.66602 29.3288V2.66624Z" fill="white" />
-
+                <path
+                  d="M2.66602 2.66624H29.3286V29.3288L2.66602 2.66624Z"
+                  fill="white"
+                />
+                <path
+                  d="M2.66602 2.66624H22.663L15.9973 15.9975L2.66602 2.66624Z"
+                  fill="black"
+                  fillOpacity="0.15"
+                />
+                <path
+                  d="M2.66602 2.66624H15.9973L2.66602 29.3288V2.66624Z"
+                  fill="white"
+                />
               </svg>
-
               <h2 className="text-lg font-semibold">RED PRODUCT</h2>
-
             </div>
-
             <button
-
               className="lg:hidden text-white"
-
               onClick={() => setSidebarOpen(false)}
-
             >
-
               <FiX size={24} />
-
             </button>
-
           </div>
-
 
           <nav className="space-y-2 flex-1">
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive ? "bg-white text-[#2e3034] font-medium" : "text-white hover:bg-gray-700"
+                  isActive
+                    ? "bg-white text-[#2e3034] font-medium"
+                    : "text-white hover:bg-gray-700"
                 }`
               }
               onClick={() => setSidebarOpen(false)}
@@ -420,7 +406,9 @@ const List: React.FC = () => {
               to="/list"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive ? "bg-white text-[#2e3034] font-medium" : "text-white hover:bg-gray-700"
+                  isActive
+                    ? "bg-white text-[#2e3034] font-medium"
+                    : "text-white hover:bg-gray-700"
                 }`
               }
               onClick={() => setSidebarOpen(false)}
@@ -433,7 +421,9 @@ const List: React.FC = () => {
             <div className="w-12 h-12 rounded-full bg-[#ffa500] flex items-center justify-center text-white font-bold mb-2">
               {getInitials(user?.name)}
             </div>
-            <p className="font-medium text-center text-sm">{user?.name || "Utilisateur"}</p>
+            <p className="font-medium text-center text-sm">
+              {user?.name || "Utilisateur"}
+            </p>
             <p className="text-xs text-green-400 mt-1">En ligne</p>
           </div>
         </div>
@@ -441,7 +431,7 @@ const List: React.FC = () => {
 
       {/* Contenu principal */}
       <main className="flex-1 flex flex-col lg:ml-0 min-h-screen">
-        {/* Navbar (omitted for brevity, assume content is identical) */}
+        {/* Navbar */}
         <div className="bg-white shadow-sm flex items-center justify-between p-4 lg:px-6">
           <div className="flex items-center gap-4">
             <button
@@ -450,7 +440,9 @@ const List: React.FC = () => {
             >
               <FiMenu size={24} />
             </button>
-            <h1 className="text-xl font-semibold text-gray-800">Liste des hôtels</h1>
+            <h1 className="text-xl font-semibold text-gray-800">
+              Liste des hôtels
+            </h1>
           </div>
 
           <div className="flex items-center gap-3 lg:gap-4">
@@ -467,7 +459,9 @@ const List: React.FC = () => {
             <div className="flex items-center gap-3">
               <button className="relative text-gray-600 hover:text-gray-800 p-2">
                 <FiBell size={20} />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">3</span>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
+                  3
+                </span>
               </button>
               <div className="hidden sm:flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-[#ffa500] flex items-center justify-center text-white font-bold">
@@ -503,9 +497,14 @@ const List: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white px-4 lg:px-6 py-4 mb-6 border-b gap-3 sm:gap-0">
           <div>
             <p className="text-gray-600 text-lg font-medium">
-              Mes hôtels <span className="text-gray-800 font-semibold">({filteredHotels.length})</span>
+              Mes hôtels{" "}
+              <span className="text-gray-800 font-semibold">
+                ({filteredHotels.length})
+              </span>
             </p>
-            <p className="text-gray-500 text-sm">Gérez vos établissements hôteliers</p>
+            <p className="text-gray-500 text-sm">
+              Gérez vos établissements hôteliers
+            </p>
           </div>
           <button
             onClick={() => handleOpenPopup()}
@@ -542,20 +541,23 @@ const List: React.FC = () => {
                   className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-100"
                 >
                   <HotelImage hotel={hotel} />
-                  
+
                   <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">{hotel.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">
+                      {hotel.name}
+                    </h3>
                     <p className="text-gray-600 text-sm truncate mb-2 flex items-center">
                       <span className="truncate">{hotel.address}</span>
                     </p>
-                    
+
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-blue-600 font-semibold">
-                        {/* Affichage: utiliser le prix tel quel (qui contient le point si l'API l'a envoyé) */}
                         {hotel.price_per_night} {hotel.currency}
-                        <span className="text-gray-500 text-xs font-normal ml-1">/nuit</span>
+                        <span className="text-gray-500 text-xs font-normal ml-1">
+                          /nuit
+                        </span>
                       </span>
-                      
+
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleOpenPopup(hotel)}
@@ -584,10 +586,9 @@ const List: React.FC = () => {
                 {searchTerm ? "Aucun hôtel trouvé" : "Aucun hôtel"}
               </h3>
               <p className="text-gray-400 text-center mb-6">
-                {searchTerm 
-                  ? "Aucun résultat ne correspond à votre recherche" 
-                  : "Commencez par créer votre premier hôtel"
-                }
+                {searchTerm
+                  ? "Aucun résultat ne correspond à votre recherche"
+                  : "Commencez par créer votre premier hôtel"}
               </p>
               {!searchTerm && (
                 <button
@@ -689,11 +690,8 @@ const List: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Prix par nuit *
                   </label>
-                  {/* Note: l'input type="number" ignore le remplacement de la virgule pour l'API. 
-                      Pour supporter à la fois la virgule dans l'UI et le point dans l'API, 
-                      il est souvent préférable d'utiliser type="text" et de valider côté client/serveur. */}
                   <input
-                    type="text" 
+                    type="text"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -730,13 +728,22 @@ const List: React.FC = () => {
                     onChange={handlePhotoChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  
+
                   {/* Aperçu de la photo */}
-                  {(photoPreview || (currentHotel?.photo && !photo)) && (
+                  {(photoPreview || currentHotel?.photo) && (
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
-                        src={photoPreview || (currentHotel?.photo ? `${import.meta.env.VITE_STORAGE_BASE_URL}/${currentHotel.photo}` : '')}
+                        src={
+                          photoPreview
+                            ? photoPreview
+                            : currentHotel?.photo
+                            ? (currentHotel.photo.startsWith("http")
+                                ? currentHotel.photo
+                                : `${import.meta.env.VITE_STORAGE_BASE_URL}/${currentHotel.photo}`
+                              )
+                            : ""
+                        }
                         alt="Aperçu"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />
@@ -750,7 +757,7 @@ const List: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleClosePopup}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-2 border border_gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                   disabled={loading}
                 >
                   Annuler
@@ -765,8 +772,10 @@ const List: React.FC = () => {
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       {isEditing ? "Mise à jour..." : "Création..."}
                     </>
+                  ) : isEditing ? (
+                    "Mettre à jour"
                   ) : (
-                    isEditing ? "Mettre à jour" : "Créer l'hôtel"
+                    "Créer l’hôtel"
                   )}
                 </button>
               </div>
