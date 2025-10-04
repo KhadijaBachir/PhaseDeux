@@ -728,11 +728,11 @@ const List: React.FC = () => {
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-2">Aperçu:</p>
                       <img
-                        src={
-                          // Utilisation de photoPreview (nouvelle image) 
-                          // OU de getStorageUrl (image existante)
-                          photoPreview || getStorageUrl(currentHotel?.photo) || ''
-                        }
+                      src={
+                        photoPreview ||
+                        // FIX: Si currentHotel?.photo est 'undefined', on passe 'null' à la fonction
+                        getStorageUrl(currentHotel?.photo ?? null) || '' 
+                      }
                         alt="Aperçu"
                         className="w-32 h-32 object-cover rounded-lg border border-gray-300"
                       />
